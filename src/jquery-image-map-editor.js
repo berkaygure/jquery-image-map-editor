@@ -1,6 +1,6 @@
 require('./jquery-image-map-editor.css');
 
-; (function ($) {
+(function ($) {
 
 
     class ImageMapEditor {
@@ -14,6 +14,7 @@ require('./jquery-image-map-editor.css');
                 activeShape: null,
                 points: [],
             }, options);
+
             this.item = $(item);
             this.init();
         }
@@ -21,19 +22,20 @@ require('./jquery-image-map-editor.css');
         init() {
             const editorElement = $(this.item).wrap('<div class="image-map-editor"></div>').parent();
             const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            var that = this;
-            $(svg).addClass('image-map-editor-svg').appendTo(editorElement);
-            $(svg).on('mousedown', function (e) {
-                that.addPoint(that.convertRelativeCoordinates(e));
-            })
-            $(svg).on('mouseup', function (e) {
-                that.renderPoint($(this));
-            })
-
+            $(svg).addClass('image-map-editor-svg')
+                .appendTo(editorElement)
+                .on('mousedown', (e) => {
+                    this.addPoint(this.convertRelativeCoordinates(e));
+                })
+                .on('mouseup', (e) => {
+                    this.render(svg);
+                });
         }
+
         draws() {
             return [...this.options.drawedShapes];
         }
+
         addDraw(draw) {
             this.options.drawedShapes.push({
                 type: draw.type,
@@ -42,46 +44,25 @@ require('./jquery-image-map-editor.css');
             });
             this.options.activeShape = this.options.drawedShapes[this.options.drawedShapes.length - 1];
         }
+
         addPoint(point) {
             if (this.options.activeShape) {
                 this.options.activeShape.points.push(point);
             }
         }
-        renderPoint(svg) {
+
+        bindEvents(item) {
+
+        }
+
+        render(svg) {
             this.clear(svg);
-            this.options.drawedShapes.forEach(element => {
+            this.options.drawedShapes.forEach((element, elementIndex) => {
                 element.points.forEach((point, index) => {
-                    const pointElement = this.createSvgElement('circle', { cx: point.x, cy: point.y, r: 5 });
-                    $(pointElement).addClass('image-map-editor-svg__point');
-                    $(pointElement).data('id', index);
-                    $(svg).append(pointElement)
+                    $(svg).append(this.createPointElement(point.x, point.y, elementIndex, index));
                 })
 
-                let move = false;
-                const polygon = this.createSvgElement('polygon', { points: this.implodePoints(element.points) });
-                $(polygon).addClass('image-map-editor-svg__point');
-                $(polygon).on('mousedown', function (e){
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
-                    move = true;
-                });
-                const that = this;
-                $(polygon).on('mousemove', function (e){
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
-                    if(move) {
-                        const po = that.convertRelativeCoordinates(e);
-                        $(polygon).attr('cx', po.x);
-                        $(polygon).attr('cy', po.y);
-                        console.log(po);
-                    }
-                });
-                $(polygon).on('mouseup', function (e){
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
-                    move = false;
-                });
-                $(svg).append(polygon)
+                $(svg).append(this.createShapeElement(this.implodePoints(element.points), elementIndex));
             })
 
         }
@@ -95,26 +76,45 @@ require('./jquery-image-map-editor.css');
                 y
             }
         }
+
         implodePoints(elementPoints) {
             return elementPoints.map(p => p.x + ',' + p.y).join(',');
         }
+
         createSvgElement(tag, attrs) {
             var el = document.createElementNS('http://www.w3.org/2000/svg', tag);
             for (var k in attrs)
                 el.setAttribute(k, attrs[k]);
             return el;
         }
+
+        createShapeElement(points, elementId) {
+            const shape = this.createSvgElement('polygon', { points });
+            $(shape).addClass('image-map-editor-svg__shape')
+            $(shape).data('shape-id', elementId);
+
+            return shape;
+        }
+
+        createPointElement(x, y, elementId, pointId) {
+            const pointElement = this.createSvgElement('circle', { cx: x, cy: y, r: 5 });
+            $(pointElement).addClass('image-map-editor-svg__point')
+            $(pointElement).data('shape-id', elementId)
+            $(pointElement).data('pount-id', pointId);
+
+            return pointElement;
+        }
+
         clear(element) {
             $(element).children().remove();
         }
+
         update(index, element, event) {
             const pos = this.convertRelativeCoordinates(event);
             // this.points[index] = pos;
             element.setAttribute('cx', pos.x);
             element.setAttribute('cy', pos.y);
         }
-
-        
     }
 
 
@@ -123,21 +123,19 @@ require('./jquery-image-map-editor.css');
         var args = Array.prototype.slice.call(arguments, 1);
         if (typeof opt === 'string') {
             var item = $(this), instance = item.data('ImageMapEditor');
-            if(instance) {
+            if (instance) {
                 return instance[opt].call(instance, args);
             }
-        }else {
+        } else {
             return this.each(function () {
                 var item = $(this), instance = item.data('ImageMapEditor');
                 if (!instance) {
-                    // create plugin instance if not created
                     item.data('ImageMapEditor', new ImageMapEditor(this, opt));
                 }
             });
         }
-
-        
     };
+
 })(jQuery);
 
 
